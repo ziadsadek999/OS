@@ -52,7 +52,13 @@ public class Kernel {
 
 	public String readFile(String fileName) throws IOException {
 		BufferedReader reader = new BufferedReader(new FileReader(fileName));
-		return reader.readLine();
+		StringBuilder file = new StringBuilder();
+		while(reader.ready()) {
+			file.append(reader.readLine());
+			if(reader.ready())
+				file.append('\n');
+		}
+		return file.toString();
 	}
 
 	public void printFromTo(String lowerBound, String higherBound) {
