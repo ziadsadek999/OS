@@ -41,6 +41,7 @@ public class Kernel {
 
 	public void print(String value) {
 		System.out.println(value);
+		System.out.println();
 	}
 
 	public void writeFile(String fileName, String value) throws IOException {
@@ -71,6 +72,7 @@ public class Kernel {
 			low++;
 		}
 		System.out.println(output);
+		System.out.println();
 	}
 
 	public String getFromMemory(String variable,Process process) {

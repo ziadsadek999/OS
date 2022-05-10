@@ -24,10 +24,14 @@ public class Scheduler {
 			if (currentlyExecuting != null) {
 				Interpreter.read(currentlyExecuting,kernel);
 				if (currentlyExecuting.isBlocked || !currentlyExecuting.processReader.ready()) {
+					if (currentlyExecuting.isBlocked) System.out.println(currentlyExecuting+" got blocked!");
+					else System.out.println(currentlyExecuting+" finished it's execution!");
 					printQueues();
+					System.out.println();
 					if (!readyQueue.isEmpty()) {
 						currentlyExecuting = readyQueue.poll();
 						printQueues();
+						
 					}
 					else
 						currentlyExecuting = null;

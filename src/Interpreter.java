@@ -11,6 +11,7 @@ public class Interpreter {
 			String splittedInstruction[] = process.delayedInstruction.split(" ");
 			System.out.println("Currently executing instruction: " + splittedInstruction[0] + " "
 					+ splittedInstruction[1] + " " + process.delayedInput);
+			System.out.println();
 			kernel.assign(splittedInstruction[1], process.delayedInput,process);
 			process.delayedInput = null;
 			process.delayedInstruction = null;
@@ -30,6 +31,7 @@ public class Interpreter {
 		}
 		System.out.println("Currently executing process: " + process.toString());
 		System.out.println("Currently executing instruction: " + instruction);
+		System.out.println();
 		if (splittedInstruction[0].equals("print")) {
 			String value = kernel.getFromMemory(splittedInstruction[1],process);
 			kernel.print(value);
