@@ -8,7 +8,9 @@ public class Scheduler {
 		int currentTime = processes.peek().arrivalTime;
 		readyQueue = new LinkedList<Process>();
 		blockedQueue = new LinkedList<Process>();
-		readyQueue.add(processes.poll());
+		while (!processes.isEmpty() && currentTime == processes.peek().arrivalTime) {
+			readyQueue.add(processes.poll());
+		}
 		int remainingTime = timeSlice;
 		Process currentlyExecuting = readyQueue.poll();
 		printQueues();
