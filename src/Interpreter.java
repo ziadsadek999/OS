@@ -5,70 +5,62 @@ import java.util.*;
 
 public class Interpreter {
 
-	public static void read(Process process, Kernel kernel) throws IOException {
-		if (process.delayedInstruction != null) {
-			System.out.println("Currently executing process: " + process.toString());
-			String splittedInstruction[] = process.delayedInstruction.split(" ");
-			System.out.println("Currently executing instruction: " + splittedInstruction[0] + " "
-					+ splittedInstruction[1] + " " + process.delayedInput);
-			System.out.println();
-			kernel.assign(splittedInstruction[1], process.delayedInput,process);
-			process.delayedInput = null;
-			process.delayedInstruction = null;
-			return;
-		}
-		String instruction = process.processReader.readLine();
+	public static void read(Process process, Kernel kernel) throws Exception {
+		int pc = kernel.getPC(process);
+		kernel.incrementPC(process);
+		int start = kernel.getStart(process);
+		String instruction = Memory.getInstance().getIndex(pc + start);
 		String splittedInstruction[] = instruction.split(" ");
-		if (splittedInstruction[0].equals("assign") && splittedInstruction[2].equals("input")) {
-			process.delayedInstruction = instruction;
-			instruction = "input";
-			splittedInstruction = instruction.split(" ");
-		}
-		if (splittedInstruction[0].equals("assign") && splittedInstruction[2].equals("readFile")) {
-			process.delayedInstruction = instruction;
-			instruction = "readFile " + splittedInstruction[3];
-			splittedInstruction = instruction.split(" ");
-		}
 		System.out.println("Currently executing process: " + process.toString());
 		System.out.println("Currently executing instruction: " + instruction);
 		System.out.println();
 		if (splittedInstruction[0].equals("print")) {
-			String value = kernel.getFromMemory(splittedInstruction[1],process);
+			String value = kernel.getFromMemory(splittedInstruction[1], process);
 			kernel.print(value);
 			return;
 		}
 		if (splittedInstruction[0].equals("writeFile")) {
-			String fileName = kernel.getFromMemory(splittedInstruction[1],process);
-			String value = kernel.getFromMemory(splittedInstruction[2],process);
+			String fileName = kernel.getFromMemory(splittedInstruction[1], process);
+			String value = kernel.getFromMemory(splittedInstruction[2], process);
 			kernel.writeFile(fileName, value);
 			return;
 		}
 		if (splittedInstruction[0].equals("printFromTo")) {
-			String lowerBound = kernel.getFromMemory(splittedInstruction[1],process);
-			String higherBound = kernel.getFromMemory(splittedInstruction[2],process);
-			kernel.printFromTo(lowerBound, higherBound);
+			String lowerBound = kernel.getFromMemory(splittedInstruction[1], process);
+			String higherBound = kernel.getFromMemory(splittedInstruction[2], process);
+			int low = Integer.parseInt(lowerBound);
+			int high = Integer.parseInt(higherBound);
+			while (low <= high) {
+				kernel.print(low + "");
+				low++;
+			}
 			return;
 		}
 		if (splittedInstruction[0].equals("input")) {
 			String in = kernel.input();
-			if (process.delayedInstruction != null)
-				process.delayedInput = in;
 			return;
 		}
 		if (splittedInstruction[0].equals("readFile")) {
-			String fileName = kernel.getFromMemory(splittedInstruction[1],process);
+			String fileName = kernel.getFromMemory(splittedInstruction[1], process);
 			String in = kernel.readFile(fileName);
-			if (process.delayedInstruction != null)
-				process.delayedInput = in;
 			return;
 		}
 		if (splittedInstruction[0].equals("assign")) {
-			String value = kernel.getFromMemory(splittedInstruction[2],process);
-			if (value != null)
-				kernel.assign(splittedInstruction[1], value,process);
-			else
-				kernel.assign(splittedInstruction[1], splittedInstruction[2],process);
+			String value;
+			if (splittedInstruction[2].equals("input")) {
+				value = kernel.input();
+			} else if (splittedInstruction[2].equals("readFile")) {
+				String fileName = kernel.getFromMemory(splittedInstruction[3], process);
+				value = kernel.readFile(fileName);
+			} else {
+				value = kernel.getFromMemory(splittedInstruction[2], process);
+				if (value == null)
+					value = splittedInstruction[2];
+
+			}
+			kernel.assign(splittedInstruction[1], value, process);
 			return;
+
 		}
 		if (splittedInstruction[0].equals("semWait")) {
 			kernel.semWait(splittedInstruction[1], process);

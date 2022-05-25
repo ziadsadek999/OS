@@ -1,15 +1,18 @@
+import java.io.IOException;
 import java.util.*;
 
 public class Mutex {
 	Queue<Process> blockedQueue;
 	Integer acquiringProcessId;
+	Kernel kernel;
 
-	public Mutex() {
+	public Mutex(Kernel kernel) {
 		blockedQueue = new LinkedList<Process>();
 		acquiringProcessId = null;
+		this.kernel = kernel;
 	}
 
-	public Process semSignal(int signalingProcessId) {
+	public Process semSignal(int signalingProcessId) throws Exception {
 		if (signalingProcessId != acquiringProcessId) {
 			return null;
 		}
@@ -17,8 +20,8 @@ public class Mutex {
 		if (!blockedQueue.isEmpty()) {
 			Process unblockedProcess = blockedQueue.poll();
 			acquiringProcessId = unblockedProcess.id;
-			unblockedProcess.isBlocked = false;
-			while(Scheduler.blockedQueue.peek()!=unblockedProcess)
+			kernel.setBlocked(unblockedProcess, false);
+			while (Scheduler.blockedQueue.peek() != unblockedProcess)
 				Scheduler.blockedQueue.add(Scheduler.blockedQueue.poll());
 			Scheduler.blockedQueue.poll();
 			return unblockedProcess;

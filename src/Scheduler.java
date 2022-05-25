@@ -4,56 +4,53 @@ import java.util.*;
 public class Scheduler {
 	static Queue<Process> readyQueue;
 	static Queue<Process> blockedQueue;
-	public static void run(int timeSlice, PriorityQueue<Process> processes,Kernel kernel) throws IOException {
-		int currentTime = processes.peek().arrivalTime;
+
+	public static void run(int timeSlice, PriorityQueue<Process> processes, Kernel kernel) throws Exception {
+		int cycle = 0;
+		Process currentlyExecuting = null;
 		readyQueue = new LinkedList<Process>();
 		blockedQueue = new LinkedList<Process>();
-		while (!processes.isEmpty() && currentTime == processes.peek().arrivalTime) {
-			readyQueue.add(processes.poll());
-		}
 		int remainingTime = timeSlice;
-		Process currentlyExecuting = readyQueue.poll();
-		printQueues();
 		while (!readyQueue.isEmpty() || !processes.isEmpty() || currentlyExecuting != null) {
-			while (!processes.isEmpty() && currentTime == processes.peek().arrivalTime) {
-				readyQueue.add(processes.poll());
+			System.out.println("Cycle: " + (cycle));
+			System.out.println(Memory.getInstance());
+			while (!processes.isEmpty() && processes.peek().arrivalTime == cycle) {
+				readyQueue.add(processes.peek());
+				kernel.createProcess(processes.poll());
 			}
-			if (currentlyExecuting == null && !readyQueue.isEmpty()) {
-				currentlyExecuting = readyQueue.poll();
-				printQueues();
-				remainingTime = timeSlice;
-			}
-			if (currentlyExecuting != null) {
-				Interpreter.read(currentlyExecuting,kernel);
-				if (currentlyExecuting.isBlocked || !currentlyExecuting.processReader.ready()) {
-					if (currentlyExecuting.isBlocked) System.out.println(currentlyExecuting+" got blocked!");
-					else System.out.println(currentlyExecuting+" finished it's execution!");
-					printQueues();
-					System.out.println();
+			cycle++;
+			if (currentlyExecuting == null) {
+				if (!readyQueue.isEmpty()) {
+					currentlyExecuting = readyQueue.poll();
+					kernel.getToMemory(currentlyExecuting);
+				}
+			} else {
+				if (kernel.isBlocked(currentlyExecuting) || kernel.isFinished(currentlyExecuting)) {
 					if (!readyQueue.isEmpty()) {
 						currentlyExecuting = readyQueue.poll();
-						printQueues();
-						
-					}
-					else
+						kernel.getToMemory(currentlyExecuting);
+					} else {
 						currentlyExecuting = null;
+					}
 					remainingTime = timeSlice;
-				} else {
-					remainingTime--;
-					if (remainingTime == 0) {
-						readyQueue.add(currentlyExecuting);
+				} else if (remainingTime == 0) {
+					remainingTime = timeSlice;
+					readyQueue.add(currentlyExecuting);
+					kernel.setReady(currentlyExecuting);
+					if (!readyQueue.isEmpty()) {
 						currentlyExecuting = readyQueue.poll();
-						printQueues();
-						remainingTime = timeSlice;
+						kernel.getToMemory(currentlyExecuting);
+					} else {
+						currentlyExecuting = null;
 					}
 				}
+				if (currentlyExecuting != null) {
+					Interpreter.read(currentlyExecuting, kernel);
+					remainingTime--;
+				}
 			}
-			currentTime++;
 		}
 
 	}
-	public static void printQueues() {
-		System.out.println("Ready queue: "+readyQueue);
-		System.out.println("Blocked queue: "+blockedQueue);
-	}
+
 }

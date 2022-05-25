@@ -7,12 +7,12 @@ public class Kernel {
 	private Mutex file;
 
 	public Kernel() {
-		userInput = new Mutex();
-		userOutput = new Mutex();
-		file = new Mutex();
+		userInput = new Mutex(this);
+		userOutput = new Mutex(this);
+		file = new Mutex(this);
 	}
 
-	public void semWait(String mutexType, Process process) {
+	public void semWait(String mutexType, Process process) throws IOException {
 		boolean isBlocked;
 		if (mutexType.equals("userInput")) {
 			isBlocked = userInput.semWait(process);
@@ -21,12 +21,12 @@ public class Kernel {
 		} else {
 			isBlocked = file.semWait(process);
 		}
-		if(isBlocked)
+		if (isBlocked)
 			Scheduler.blockedQueue.add(process);
-		process.isBlocked = isBlocked;
+		setBlocked(process, isBlocked);
 	}
 
-	public void semSignal(String mutexType, Process process) {
+	public void semSignal(String mutexType, Process process) throws Exception {
 		Process unblockedProcess;
 		if (mutexType.equals("userInput")) {
 			unblockedProcess = userInput.semSignal(process.id);
@@ -54,29 +54,12 @@ public class Kernel {
 	public String readFile(String fileName) throws IOException {
 		BufferedReader reader = new BufferedReader(new FileReader(fileName));
 		StringBuilder file = new StringBuilder();
-		while(reader.ready()) {
+		while (reader.ready()) {
 			file.append(reader.readLine());
-			if(reader.ready())
+			if (reader.ready())
 				file.append('\n');
 		}
 		return file.toString();
-	}
-
-	public void printFromTo(String lowerBound, String higherBound) {
-		int low = Integer.parseInt(lowerBound);
-		int high = Integer.parseInt(higherBound);
-
-		StringBuilder output = new StringBuilder();
-		while (low <= high) {
-			output.append(low + " ");
-			low++;
-		}
-		System.out.println(output);
-		System.out.println();
-	}
-
-	public String getFromMemory(String variable,Process process) {
-		return process.memory.getOrDefault(variable, null);
 	}
 
 	public String input() throws IOException {
@@ -85,7 +68,206 @@ public class Kernel {
 		return reader.readLine();
 	}
 
-	public void assign(String variable, String value,Process process) {
-		process.memory.put(variable, value);
+	public int getPC(Process process) {
+		String s = Memory.getInstance().getIndex(process.startPosition + 2);
+		String split[] = s.split(" ");
+		return Integer.parseInt(split[1]);
 	}
+
+	public int getStart(Process process) {
+
+		return process.startPosition;
+	}
+
+	public boolean isBlocked(Process process) {
+		String s = Memory.getInstance().getIndex(process.startPosition + 2);
+		String split[] = s.split(" ");
+		return split[1].equals("Blocked");
+	}
+
+	public boolean isFinished(Process process) {
+		int pc = getPC(process);
+		String s = Memory.getInstance().getIndex(process.startPosition);
+		int end = Integer.parseInt(s.split(" ")[2]);
+		if (pc + process.startPosition > end) {
+			Memory.getInstance().write(process.startPosition + 3, "Status: finished");
+			return true;
+		}
+		return false;
+	}
+
+	public void incrementPC(Process process) {
+		int pc = getPC(process);
+		Memory.getInstance().write(process.startPosition + 2, "PC: " + (pc + 1));
+	}
+
+	public void assign(String variable, String value, Process process) {
+		if (getFromMemory(variable, process) == null) {
+			String var = Memory.getInstance().getIndex(process.startPosition + 4);
+			if (var.equals(null)) {
+				Memory.getInstance().write(process.startPosition + 4, "Variable: " + variable + " Value: " + value);
+				return;
+			}
+			var = Memory.getInstance().getIndex(process.startPosition + 5);
+			if (var.equals(null)) {
+				Memory.getInstance().write(process.startPosition + 5, "Variable: " + variable + " Value: " + value);
+				return;
+			} else {
+				Memory.getInstance().write(process.startPosition + 6, "Variable: " + variable + " Value: " + value);
+				return;
+			}
+		} else {
+			String var = Memory.getInstance().getIndex(process.startPosition + 4);
+			if (var.equals(variable)) {
+				Memory.getInstance().write(process.startPosition + 4, "Variable: " + variable + " Value: " + value);
+				return;
+			}
+			var = Memory.getInstance().getIndex(process.startPosition + 5);
+			if (var.equals(variable)) {
+				Memory.getInstance().write(process.startPosition + 5, "Variable: " + variable + " Value: " + value);
+				return;
+			} else {
+				Memory.getInstance().write(process.startPosition + 6, "Variable: " + variable + " Value: " + value);
+				return;
+			}
+		}
+
+	}
+
+	public String getFromMemory(String variable, Process process) {
+		String var = Memory.getInstance().getIndex(process.startPosition + 4);
+		var = var == null ? null : (var.split(" "))[1];
+		if (variable.equals(var))
+			return (var.split(" "))[3];
+		var = Memory.getInstance().getIndex(process.startPosition + 5);
+		var = var == null ? null : (var.split(" "))[1];
+		if (variable.equals(var))
+			return (var.split(" "))[3];
+		var = Memory.getInstance().getIndex(process.startPosition + 6);
+		var = var == null ? null : (var.split(" "))[1];
+		if (variable.equals(var))
+			return (var.split(" "))[3];
+		return null;
+
+	}
+
+	public void setBlocked(Process process, boolean value) throws IOException {
+		if (value) {
+			Memory.getInstance().write(process.startPosition + 3, "Status: Blocked");
+		} else {
+			if (process.startPosition != -1) {
+				Memory.getInstance().write(process.startPosition + 3, "Status: Ready");
+			} else {
+				BufferedReader reader = new BufferedReader(new FileReader("Disk_" + process.name));
+				StringBuilder out = new StringBuilder();
+				int c = 0;
+				while (reader.ready()) {
+					if (c != 3) {
+						out.append(reader.readLine());
+						if (reader.ready()) {
+							out.append('\n');
+						}
+					} else {
+						out.append("Status: Ready");
+						if (reader.ready()) {
+							out.append('\n');
+						}
+					}
+					c++;
+				}
+				PrintWriter pw = new PrintWriter(new File("Disk_" + process.name));
+				pw.println(out);
+				pw.flush();
+				pw.close();
+			}
+		}
+	}
+
+	public void writeToDisk(Process process) throws FileNotFoundException {
+		String[] boundaries = Memory.getInstance().getIndex(process.startPosition).split(" ");
+		int end = Integer.parseInt(boundaries[2]);
+		PrintWriter writer = new PrintWriter(new File("Disk_" + process.name));
+		for (int i = process.startPosition; i <= end; i++) {
+			writer.println(Memory.getInstance().getIndex(i));
+		}
+		Memory.getInstance().positions[process.id - 1][0] = -1;
+		process.startPosition = -1;
+		writer.flush();
+	}
+
+	public void writeToMemory(Process process, int start) throws Exception {
+		BufferedReader reader = new BufferedReader(new FileReader("Disk_" + process.name));
+		Memory.getInstance().positions[process.id - 1][0] = start;
+		process.startPosition = start;
+		Memory.getInstance().write(start,
+				"Boundaries: " + start + " " + (start + Memory.getInstance().positions[process.id - 1][1] - 1));
+		reader.readLine();
+		start++;
+		while (reader.ready()) {
+			Memory.getInstance().write(start++, reader.readLine());
+
+		}
+
+	}
+
+	public void createProcess(Process process) throws Exception {
+		int id = Memory.getInstance().addToMemory(this, process);
+		if (id != -1) {
+			process.id = id;
+			return;
+		}
+		Process removed = getRemovedProcess();
+		if (removed != null) {
+			writeToDisk(removed);
+			createProcess(process);
+			return;
+		}
+		Memory.getInstance().reorganize();
+		Memory.getInstance().addToMemory(this, process);
+		process.id = id;
+
+	}
+
+	public void getToMemory(Process process) throws Exception {
+		if (process.startPosition == -1) {
+			String[] parsedProcess = readProcessFromDisk("Disk_" + process.name);
+			int start = Memory.getInstance().checkFreeSpace(parsedProcess.length);
+			while (start == -1) {
+				Process removed = getRemovedProcess();
+				writeToDisk(removed);
+				start = Memory.getInstance().checkFreeSpace(parsedProcess.length);
+			}
+			writeToMemory(process, start);
+		}
+		Memory.getInstance().write(process.startPosition + 3, "Status: Running");
+
+	}
+
+	public void setReady(Process process) {
+		Memory.getInstance().write(process.startPosition + 3, "Status: Ready");
+	}
+
+	public Process getRemovedProcess() {
+		Process result = null;
+		if (!Scheduler.blockedQueue.isEmpty()) {
+			result = Scheduler.blockedQueue.peek();
+		} else if (!Scheduler.readyQueue.isEmpty()) {
+			result = Scheduler.readyQueue.peek();
+		}
+		return result;
+	}
+
+	public String[] readProcessFromDisk(String name) throws Exception {
+		BufferedReader reader = new BufferedReader(new FileReader(name));
+		ArrayList<String> instructions = new ArrayList<>();
+		while (reader.ready()) {
+			instructions.add(reader.readLine());
+		}
+		String[] result = new String[instructions.size()];
+		for (int i = 0; i < instructions.size(); i++) {
+			result[i] = instructions.get(i);
+		}
+		return result;
+	}
+
 }
