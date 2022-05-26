@@ -192,6 +192,7 @@ public class Kernel {
 		}
 		Memory.getInstance().positions[process.id - 1][0] = -1;
 		process.startPosition = -1;
+		System.out.println("Process "+process.id+" is removed from memory and added to disk.");
 		writer.flush();
 	}
 
@@ -205,15 +206,15 @@ public class Kernel {
 		start++;
 		while (reader.ready()) {
 			Memory.getInstance().write(start++, reader.readLine());
-
 		}
-
+		System.out.println("Process "+process.id+" is removed from disk and added to memory.");
 	}
 
 	public void createProcess(Process process) throws Exception {
 		int id = Memory.getInstance().addToMemory(this, process);
 		if (id != -1) {
 			process.id = id;
+			System.out.println("Process "+process.id+" is created an added to memory.");
 			return;
 		}
 		Process removed = getRemovedProcess();
@@ -225,7 +226,7 @@ public class Kernel {
 		Memory.getInstance().reorganize();
 		Memory.getInstance().addToMemory(this, process);
 		process.id = id;
-
+		System.out.println("Process "+process.id+" is created an added to memory.");
 	}
 
 	public void getToMemory(Process process) throws Exception {
