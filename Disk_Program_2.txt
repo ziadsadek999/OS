@@ -1,0 +1,14 @@
+Boundaries: 14 27
+Process id: 2
+PC: 12
+Status: Ready
+Variable: a Value: file1.txt
+Variable: b Value: mango
+null
+semWait userInput
+assign a input
+assign b input
+semSignal userInput
+semWait file
+writeFile a b
+semSignal file

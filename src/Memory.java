@@ -50,10 +50,7 @@ public class Memory {
 
 	}
 
-	public int addToMemory(Kernel kernel,Process process) throws Exception {
-		String name = process.name;
-
-		String[] instructions = kernel.readProcessFromDisk(name);
+	public int addToMemory(Kernel kernel,Process process,String[] instructions) throws Exception {
 		int size = instructions.length + 7;
 		int start = checkFreeSpace(size);
 		if (start == -1) {
@@ -62,7 +59,8 @@ public class Memory {
 		process.startPosition = start;
 		positions[idCounter - 1][0] = start;
 		positions[idCounter - 1][1] = size;
-		memory[start++] = "Boundaries: " + start + " " + (start + size - 1);
+		memory[start] = "Boundaries: " + start + " " + (start + size - 1);
+		start++;
 		memory[start++] = "Process id: " + idCounter;
 		memory[start++] = "PC: 7";
 		memory[start++] = "Status: Ready";

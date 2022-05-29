@@ -12,17 +12,23 @@ public class Scheduler {
 		blockedQueue = new LinkedList<Process>();
 		int remainingTime = timeSlice;
 		while (!readyQueue.isEmpty() || !processes.isEmpty() || currentlyExecuting != null) {
+			Scanner sc = new Scanner(System.in);
+			sc.nextLine();
 			System.out.println("Cycle: " + (cycle));
-			System.out.println(Memory.getInstance());
 			while (!processes.isEmpty() && processes.peek().arrivalTime == cycle) {
 				readyQueue.add(processes.peek());
 				kernel.createProcess(processes.poll());
 			}
-			cycle++;
+			
 			if (currentlyExecuting == null) {
 				if (!readyQueue.isEmpty()) {
 					currentlyExecuting = readyQueue.poll();
 					kernel.getToMemory(currentlyExecuting);
+					
+					System.out.println(Memory.getInstance());
+					cycle++;
+					Interpreter.read(currentlyExecuting, kernel);
+					remainingTime--;
 				}
 			} else {
 				if (kernel.isBlocked(currentlyExecuting) || kernel.isFinished(currentlyExecuting)) {
@@ -45,8 +51,13 @@ public class Scheduler {
 					}
 				}
 				if (currentlyExecuting != null) {
+					System.out.println(Memory.getInstance());
+					cycle++;
 					Interpreter.read(currentlyExecuting, kernel);
 					remainingTime--;
+				}else {
+					System.out.println(Memory.getInstance());
+					cycle++;
 				}
 			}
 		}

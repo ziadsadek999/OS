@@ -16,14 +16,15 @@ public class Kernel {
 		boolean isBlocked;
 		if (mutexType.equals("userInput")) {
 			isBlocked = userInput.semWait(process);
-		} else if (mutexType.equals("userOutput")) {
+		} else if (mutexType.equals("userOutput")) { 
 			isBlocked = userOutput.semWait(process);
 		} else {
 			isBlocked = file.semWait(process);
 		}
 		if (isBlocked)
 			Scheduler.blockedQueue.add(process);
-		setBlocked(process, isBlocked);
+		if (isBlocked)
+			setBlocked(process, isBlocked);
 	}
 
 	public void semSignal(String mutexType, Process process) throws Exception {
@@ -80,7 +81,7 @@ public class Kernel {
 	}
 
 	public boolean isBlocked(Process process) {
-		String s = Memory.getInstance().getIndex(process.startPosition + 2);
+		String s = Memory.getInstance().getIndex(process.startPosition + 3);
 		String split[] = s.split(" ");
 		return split[1].equals("Blocked");
 	}
@@ -91,6 +92,10 @@ public class Kernel {
 		int end = Integer.parseInt(s.split(" ")[2]);
 		if (pc + process.startPosition > end) {
 			Memory.getInstance().write(process.startPosition + 3, "Status: finished");
+			Memory.getInstance().positions[process.id - 1][0] = -1;
+			System.out.println(process+" finished execution!");
+			process.startPosition = -1;
+			
 			return true;
 		}
 		return false;
@@ -104,12 +109,12 @@ public class Kernel {
 	public void assign(String variable, String value, Process process) {
 		if (getFromMemory(variable, process) == null) {
 			String var = Memory.getInstance().getIndex(process.startPosition + 4);
-			if (var.equals(null)) {
+			if (var == (null)) {
 				Memory.getInstance().write(process.startPosition + 4, "Variable: " + variable + " Value: " + value);
 				return;
 			}
 			var = Memory.getInstance().getIndex(process.startPosition + 5);
-			if (var.equals(null)) {
+			if (var == (null)) {
 				Memory.getInstance().write(process.startPosition + 5, "Variable: " + variable + " Value: " + value);
 				return;
 			} else {
@@ -135,26 +140,29 @@ public class Kernel {
 	}
 
 	public String getFromMemory(String variable, Process process) {
-		String var = Memory.getInstance().getIndex(process.startPosition + 4);
-		var = var == null ? null : (var.split(" "))[1];
+		String line = Memory.getInstance().getIndex(process.startPosition + 4);
+		String var = line == null ? null : (line.split(" "))[1];
 		if (variable.equals(var))
-			return (var.split(" "))[3];
-		var = Memory.getInstance().getIndex(process.startPosition + 5);
-		var = var == null ? null : (var.split(" "))[1];
+			return (line.split(" "))[3];
+		line = Memory.getInstance().getIndex(process.startPosition + 5);
+		var = line == null ? null : (line.split(" "))[1];
 		if (variable.equals(var))
-			return (var.split(" "))[3];
-		var = Memory.getInstance().getIndex(process.startPosition + 6);
-		var = var == null ? null : (var.split(" "))[1];
+			return (line.split(" "))[3];
+		line = Memory.getInstance().getIndex(process.startPosition + 6);
+		var = line == null ? null : (line.split(" "))[1];
 		if (variable.equals(var))
-			return (var.split(" "))[3];
+			return (line.split(" "))[3];
 		return null;
 
 	}
 
 	public void setBlocked(Process process, boolean value) throws IOException {
+
 		if (value) {
 			Memory.getInstance().write(process.startPosition + 3, "Status: Blocked");
+			System.out.println(process + " is blocked!");
 		} else {
+
 			if (process.startPosition != -1) {
 				Memory.getInstance().write(process.startPosition + 3, "Status: Ready");
 			} else {
@@ -169,6 +177,7 @@ public class Kernel {
 						}
 					} else {
 						out.append("Status: Ready");
+						reader.readLine();
 						if (reader.ready()) {
 							out.append('\n');
 						}
@@ -179,6 +188,7 @@ public class Kernel {
 				pw.println(out);
 				pw.flush();
 				pw.close();
+				System.out.println(process + " is unblocked!");
 			}
 		}
 	}
@@ -192,7 +202,7 @@ public class Kernel {
 		}
 		Memory.getInstance().positions[process.id - 1][0] = -1;
 		process.startPosition = -1;
-		System.out.println("Process "+process.id+" is removed from memory and added to disk.");
+		System.out.println("Process " + process.id + " is removed from memory and added to disk.");
 		writer.flush();
 	}
 
@@ -205,37 +215,44 @@ public class Kernel {
 		reader.readLine();
 		start++;
 		while (reader.ready()) {
-			Memory.getInstance().write(start++, reader.readLine());
+			String s = reader.readLine();
+			if (!s.equals("null"))
+				Memory.getInstance().write(start++, s);
+			else
+				Memory.getInstance().write(start++, null);
 		}
-		System.out.println("Process "+process.id+" is removed from disk and added to memory.");
+		System.out.println("Process " + process.id + " is removed from disk and added to memory.");
 	}
 
 	public void createProcess(Process process) throws Exception {
-		int id = Memory.getInstance().addToMemory(this, process);
+		String[] instructions = readProcessFromDisk(process.name);
+		int id = Memory.getInstance().addToMemory(this, process, instructions);
 		if (id != -1) {
 			process.id = id;
-			System.out.println("Process "+process.id+" is created an added to memory.");
+			System.out.println("Process " + process.id + " is created an added to memory.");
 			return;
 		}
-		Process removed = getRemovedProcess();
-		if (removed != null) {
-			writeToDisk(removed);
-			createProcess(process);
+
+		int size = instructions.length + 7;
+		removeProcesses(size);
+		id = Memory.getInstance().addToMemory(this, process, instructions);
+		if (id != -1) {
+			process.id = id;
+			System.out.println("Process " + process.id + " is created an added to memory.");
 			return;
 		}
 		Memory.getInstance().reorganize();
-		Memory.getInstance().addToMemory(this, process);
+		Memory.getInstance().addToMemory(this, process, instructions);
 		process.id = id;
-		System.out.println("Process "+process.id+" is created an added to memory.");
+		System.out.println("Process " + process.id + " is created an added to memory.");
 	}
 
 	public void getToMemory(Process process) throws Exception {
 		if (process.startPosition == -1) {
 			String[] parsedProcess = readProcessFromDisk("Disk_" + process.name);
 			int start = Memory.getInstance().checkFreeSpace(parsedProcess.length);
-			while (start == -1) {
-				Process removed = getRemovedProcess();
-				writeToDisk(removed);
+			if (start == -1) {
+				removeProcesses(parsedProcess.length);
 				start = Memory.getInstance().checkFreeSpace(parsedProcess.length);
 			}
 			writeToMemory(process, start);
@@ -248,14 +265,30 @@ public class Kernel {
 		Memory.getInstance().write(process.startPosition + 3, "Status: Ready");
 	}
 
-	public Process getRemovedProcess() {
-		Process result = null;
-		if (!Scheduler.blockedQueue.isEmpty()) {
-			result = Scheduler.blockedQueue.peek();
-		} else if (!Scheduler.readyQueue.isEmpty()) {
-			result = Scheduler.readyQueue.peek();
+	public void removeProcesses(int size) throws FileNotFoundException {
+		int queueSize = Scheduler.blockedQueue.size();
+		while (queueSize-- > 0) {
+			Process curr = Scheduler.blockedQueue.poll();
+			Scheduler.blockedQueue.add(curr);
+			if (curr.startPosition != -1) {
+				writeToDisk(curr);
+				if (Memory.getInstance().checkFreeSpace(size) != -1) {
+					return;
+				}
+			}
 		}
-		return result;
+		queueSize = Scheduler.readyQueue.size();
+		boolean finished = false;
+		while (queueSize-- > 0) {
+			Process curr = Scheduler.readyQueue.poll();
+			Scheduler.readyQueue.add(curr);
+			if (curr.startPosition != -1 && !finished) {
+				writeToDisk(curr);
+				if (Memory.getInstance().checkFreeSpace(size) != -1) {
+					finished = true;
+				}
+			}
+		}
 	}
 
 	public String[] readProcessFromDisk(String name) throws Exception {

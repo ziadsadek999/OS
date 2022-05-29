@@ -1,0 +1,16 @@
+Boundaries: 14 29
+Process id: 3
+PC: 8
+Status: Ready
+null
+null
+null
+semWait userInput
+assign a input
+semSignal userInput
+semWait file
+assign b readFile a
+semSignal file
+semWait userOutput
+print b
+semSignal userOutput
